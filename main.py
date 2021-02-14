@@ -40,7 +40,7 @@ class Solver:
             self.optimizer = optim.AdamW(
                 filter(lambda p: p.requires_grad, self.model.parameters()),
                 lr=cfg.TRAIN.LR, weight_decay=cfg.TRAIN.WEIGHT_DECAY)
-            # self.scheduler = optim.lr_scheduler.StepLR(self.optimizer, step_size=10, gamma=0.1)
+            #self.scheduler = optim.lr_scheduler.StepLR(self.optimizer, step_size=10, gamma=0.1)
             self.train_collator = Collator(cfg, 'train')
         self.test_collator = Collator(cfg, 'test')
 
@@ -131,9 +131,9 @@ class Solver:
         bm_mask = get_mask(self.temporal_dim, self.max_duration).cuda()
         scores = []
         for epoch in range(n_epochs):
-            # print('Current LR: {}'.format(self.scheduler.get_last_lr()[0]))
+            #print('Current LR: {}'.format(self.scheduler.get_last_lr()[0]))
             self.train_epoch(train_loader, bm_mask, epoch, writer)
-            # self.scheduler.step()
+            #self.scheduler.step()
             score = self.evaluate(eval_loader, self.cfg.VAL.SPLIT)
 
             state = {
@@ -154,7 +154,7 @@ class Solver:
         return score
 
     def inference(self, data_loader=None, split=None, batch_size=None):
-        annotations = getDatasetDict(self.cfg.VAL.ANNOTATION_FILE, split) if self.cfg.DATASET == 'thumos' else None
+        annotations = getDatasetDict(self.cfg.DATA.ANNOTATION_FILE, split) if self.cfg.DATASET == 'thumos' else None
         self.prop_gen = ProposalGenerator(self.temporal_dim, self.max_duration, annotations)
         self.post_processing = PostProcessor(self.cfg, split)
         if data_loader is None:
@@ -185,7 +185,18 @@ class Solver:
 
 def get_args():
     parser = argparse.ArgumentParser()
-    parser.add_argument('--cfg-file', default=None, type=str, help='Path to YAML config file.')
+    parser.add_argument(
+        '--cfg-file',
+        default=None,
+        type=str,
+        help='Path to YAML config file.'
+    )
+    parser.add_argument(
+        "opts",
+        help="See slowfast/config/defaults.py for all options",
+        default=None,
+        nargs=argparse.REMAINDER
+    )
     return parser.parse_args()
 
 
@@ -193,6 +204,8 @@ def main(args):
     cfg = get_cfg()
     if args.cfg_file:
         cfg.merge_from_file(args.cfg_file)
+    if args.opts is not None:
+        cfg.merge_from_list(args.opts)
     cfg.freeze()
 
     solver = Solver(cfg)

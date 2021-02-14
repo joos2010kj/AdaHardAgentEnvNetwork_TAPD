@@ -9,8 +9,6 @@ from torch.utils.data.dataset import Dataset
 
 from utils import ioa_with_anchors, iou_with_anchors
 
-from config.defaults import get_cfg
-
 
 def load_json(file):
     with open(file) as json_file:
@@ -29,7 +27,7 @@ class Collator(object):
             self.label_names = []
         self.feat_names = ['env_feats', 'agent_feats', 'box_lens']
         self.tmp_dim = cfg.DATA.TEMPORAL_DIM
-        self.feat_dim = cfg.DATA.FEATURE_DIM
+        self.feat_dim = cfg.MODEL.AGENT_DIM
 
     def process_features(self, bsz, env_feats, agent_feats, box_lens):
         if env_feats[0] is not None:
@@ -74,7 +72,7 @@ class VideoDataSet(Dataset):
     def __init__(self, cfg, split='training'):
         self.split = split
         self.dataset_name = cfg.DATASET
-        # self.video_anno_path = cfg.DATA.ANNOTATION_FILE
+        self.video_anno_path = cfg.DATA.ANNOTATION_FILE
         self.temporal_dim = cfg.DATA.TEMPORAL_DIM
         self.max_duration = cfg.DATA.MAX_DURATION
         self.temporal_gap = 1. / self.temporal_dim
@@ -85,13 +83,8 @@ class VideoDataSet(Dataset):
         self.use_agent = cfg.USE_AGENT
 
         if split in ['train', 'training']:
-            self.video_anno_path = cfg.TRAIN.ANNOTATION_FILE
             self._get_match_map()
 
-        elif self.split in ['validation']:
-            self.video_anno_path = cfg.VAL.ANNOTATION_FILE
-        elif self.split in ['test', 'testing']:
-            self.video_anno_path = cfg.TEST.ANNOTATION_FILE
         self.video_prefix = 'v_' if cfg.DATASET == 'anet' else ''
 
         self._get_dataset()
@@ -126,6 +119,10 @@ class VideoDataSet(Dataset):
         video_lists = list(json_data)
         for video_name in video_lists:
             video_info = json_data[video_name]
+            #if not os.path.isfile(os.path.join(self.env_feature_dir, 'v_' + video_name + '.json')):
+            if not os.path.isfile(os.path.join('../datasets/activitynet/tsn_env_features', 'v_' + video_name + '.json')):
+                filter_video_names.append(video_name)
+                continue
             if video_info['subset'] != "training":
                 continue
             video_second = video_info["duration"]
@@ -140,8 +137,8 @@ class VideoDataSet(Dataset):
                 gt_lens.append(tmp_end - tmp_start)
             if len(gt_lens):
                 mean_len = np.mean(gt_lens)
-                if mean_len >= gt_len_thres:
-                    filter_video_names.append(video_name)
+                #if mean_len >= gt_len_thres:
+                #    filter_video_names.append(video_name)
                 if mean_len < 0.3:
                     augment_video_names.append(video_name)
         return filter_video_names, augment_video_names

@@ -11,9 +11,10 @@ class BoundaryMatchingNetwork(nn.Module):
         self.prop_boundary_ratio = cfg.BMN.PROP_BOUNDARY_RATIO
         self.num_sample = cfg.BMN.NUM_SAMPLES
         self.num_sample_perbin = cfg.BMN.NUM_SAMPLES_PER_BIN
-        self.feat_dim = cfg.DATA.FEATURE_DIM
         self.temporal_dim = cfg.DATA.TEMPORAL_DIM
         self.max_duration = cfg.DATA.MAX_DURATION
+
+        self.feat_dim = cfg.MODEL.FEAT_DIM
 
         self.hidden_dim_1d = cfg.MODEL.HIDDEN_DIM_1D
         self.hidden_dim_2d = cfg.MODEL.HIDDEN_DIM_2D

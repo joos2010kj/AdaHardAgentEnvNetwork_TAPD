@@ -36,9 +36,10 @@ class TransformerEncoder(nn.Module):
         >>> out = transformer_encoder(src)
     """
 
-    def __init__(self, cfg, dim_feedforward=1024, drop_out=0.1, activation='relu', norm=None):
+    def __init__(self, cfg, drop_out=0.1, activation='relu', norm=None):
         super(TransformerEncoder, self).__init__()
-        num_features = cfg.DATA.FEATURE_DIM
+        num_features = cfg.MODEL.FEAT_DIM
+        dim_feedforward = cfg.MODEL.TRANSFORMER_DIM
         num_heads = cfg.MODEL.ATTENTION_HEADS
         num_layers = cfg.MODEL.ATTENTION_LAYERS
         encoder_layer = TransformerEncoderLayer(num_features, num_heads, dim_feedforward, drop_out, activation)
@@ -136,6 +137,13 @@ class TransformerEncoderLayer(nn.Module):
 class EventDetection(nn.Module):
     def __init__(self, cfg):
         super(EventDetection, self).__init__()
+        self.use_env_linear = cfg.MODEL.ENV_HIDDEN_DIM is not None
+        self.use_agent_linear = cfg.MODEL.AGENT_HIDDEN_DIM is not None
+
+        if self.use_env_linear:
+            self.env_linear = nn.Linear(cfg.MODEL.ENV_DIM, cfg.MODEL.ENV_HIDDEN_DIM)
+        if self.use_agent_linear:
+            self.agent_linear = nn.Linear(cfg.MODEL.AGENT_DIM, cfg.MODEL.AGENT_HIDDEN_DIM)
 
         self.agents_fuser = TransformerEncoder(cfg)
         self.agents_environment_fuser = TransformerEncoder(cfg)
@@ -144,6 +152,11 @@ class EventDetection(nn.Module):
         self.attention_steps = cfg.TRAIN.ATTENTION_STEPS
 
     def forward(self, env_features=None, agent_features=None, agent_masks=None):
+        if self.use_env_linear:
+            env_features = self.env_linear(env_features)
+        if self.use_agent_linear:
+            agent_features = self.agent_linear(agent_features)
+
         if agent_features is None:
             return self.event_detector(env_features.permute(0, 2, 1))
 

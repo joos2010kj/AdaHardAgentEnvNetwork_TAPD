@@ -40,7 +40,7 @@ def run_evaluation(proposal_filename, groundtruth_filename='../datasets/thumos14
 
 def evaluate_proposals(cfg, nr_proposals_list=(50, 100, 200, 500, 1000)):
     average_recall, average_nr_proposals = run_evaluation(cfg.DATA.RESULT_PATH)
-    f = interp1d(average_nr_proposals, average_recall, axis=0)
+    f = interp1d(average_nr_proposals, average_recall, axis=0, bounds_error=False, fill_value='extrapolate')
 
     ar_results = {}
     for nr_prop in nr_proposals_list:
