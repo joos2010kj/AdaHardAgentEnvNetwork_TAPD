@@ -41,7 +41,7 @@ class Collator(object):
 
             max_box_dim = torch.max(box_lens).item()
             # Make padding mask for self-attention
-            agent_mask = torch.arange(max_box_dim)[None, None, :] >= box_lens[:, :, None]
+            agent_mask = torch.arange(max_box_dim)[None, None, :] < box_lens[:, :, None]
 
             # Pad agent features at temporal and box dimension
             pad_agent_feats = torch.zeros(bsz, self.tmp_dim, max_box_dim, self.feat_dim)
