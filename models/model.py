@@ -23,6 +23,7 @@ class EventDetection(nn.Module):
         self.event_detector = BoundaryMatchingNetwork(cfg)
 
         self.attention_steps = cfg.TRAIN.ATTENTION_STEPS
+        self.topk_hard_attention = cfg.MODEL.TOPK_AGENTS
 
     def fuse_agent(self, agent_feats, agent_masks, env_feats):
         bsz, tmprl_sz, n_boxes, ft_sz = agent_feats.size()
@@ -42,11 +43,31 @@ class EventDetection(nn.Module):
             ae_feats = agent_env_feats[:, smpl_bgn:smpl_end].contiguous().view(-1, n_boxes, ft_sz)  # bsz x n_boxes x feat_dim
             masks = agent_masks[:, smpl_bgn:smpl_end].contiguous().view(-1, n_boxes)  # bsz x n_boxes
             l2_norm = torch.norm(ae_feats, dim=-1)  # bsz x n_boxes
-            l2_norm_softmax = masked_softmax(l2_norm, ~masks)  #bsz x n_boxes
+            l2_norm_softmax = masked_softmax(l2_norm, masks)  # bsz x n_boxes
 
-            ada_thresh = torch.clamp(1. / torch.sum(~masks, dim=-1, keepdim=True), 0., 1.)
-            hard_attn_masks = l2_norm_softmax >= ada_thresh
-            keep_mask = (torch.sum(hard_attn_masks, dim=-1) > 0)  # bsz 
+            # Adaptive threshold is 1 / number of bounding boxes:
+            ada_thresh = torch.clamp(1. / torch.sum(masks, dim=-1, keepdim=True), 0., 1.)
+
+            # Generate hard attention masks
+            hard_attn_masks = l2_norm_softmax >= ada_thresh  # bsz x n_boxes
+
+            '''
+            # Generate masks for topk l2_norm
+            _, topk_indices = torch.topk(l2_norm_softmax, self.topk_hard_attention, dim=-1)
+            topk_masks = torch.zeros_like(hard_attn_masks, dtype=torch.bool)
+            topk_masks = topk_masks.scatter(-1, topk_indices, 1)
+
+            # merge hard attention masks with topk masks to only keep topk elements higher than adaptive threshold
+            hard_attn_masks = torch.logical_and(hard_attn_masks, topk_masks)
+
+            hard_attn_count = torch.sum(hard_attn_masks, dim=-1).cpu().numpy()  # bsz
+            mask_count = torch.sum(masks, dim=-1).cpu().numpy()  # bsz
+            print(smpl_bgn)
+            for i in range(bsz):
+                print(hard_attn_count[i], mask_count[i])
+            '''
+
+            keep_mask = (torch.sum(hard_attn_masks, dim=-1) > 0)  # bsz
             keep_indices = torch.masked_select(torch.arange(hard_attn_masks.size(0)).cuda(), keep_mask)  # keep_mask
 
             fuser_input = agent_feats[:, smpl_bgn:smpl_end].contiguous().view(-1, n_boxes, ft_sz).permute(1, 0, 2)  # n_boxes x bsz x feat_dim
@@ -76,8 +97,6 @@ class EventDetection(nn.Module):
 
         if env_features is None:
             return self.event_detector(agent_fused_features.permute(0, 2, 1))
-        # fixed_fusion_context = agent_fused_features * 0.4 + env_features * 0.6
-        # return self.event_detector(fixed_fusion_context.permute(0, 2, 1))
 
         env_agent_cat_features = torch.stack([env_features, agent_fused_features], dim=2)
 
