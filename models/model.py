@@ -5,8 +5,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 from config.defaults import get_cfg
-from .bmn import BoundaryMatchingNetwork
-
+from .gtad import GTAD
 
 def _get_clones(module, N):
     return nn.ModuleList([copy.deepcopy(module) for i in range(N)])
@@ -147,7 +146,7 @@ class EventDetection(nn.Module):
 
         self.agents_fuser = TransformerEncoder(cfg)
         self.agents_environment_fuser = TransformerEncoder(cfg)
-        self.event_detector = BoundaryMatchingNetwork(cfg)
+        self.event_detector = GTAD(cfg)
 
         self.attention_steps = cfg.TRAIN.ATTENTION_STEPS
 
